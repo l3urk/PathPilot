@@ -1,0 +1,30 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pathpilot-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - GROQ_API_KEY=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
+    networks:
+      - pathpilot-net
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pathpilot-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - pathpilot-net
+    restart: unless-stopped
+
+networks:
+  pathpilot-net:
+    driver: bridge
