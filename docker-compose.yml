@@ -7,7 +7,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - GROQ_API_KEY=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
+      - GROQ_API_KEY=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
     networks:
       - pathpilot-net
     restart: unless-stopped
