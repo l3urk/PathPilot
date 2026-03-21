@@ -23,6 +23,23 @@
   --radius-lg: 16px;
 }
 
+[data-theme="light"] {
+  --bg-0: #ffffff;
+  --bg-1: #f5f5f5;
+  --bg-2: #ebebeb;
+  --bg-3: #e0e0e0;
+  --border: rgba(0,0,0,0.1);
+  --text-primary: #0d1117;
+  --text-secondary: #4a4a4a;
+  --text-muted: #888888;
+  --accent-blue: #1a6bc4;
+  --accent-cyan: #0e8a6a;
+  --accent-purple: #6c3fc7;
+  --accent-orange: #c47a00;
+  --accent-red: #c0392b;
+  --accent-green: #1a7a2e;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { scroll-behavior: smooth; }

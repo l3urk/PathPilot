@@ -5,6 +5,7 @@ import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, Tooltip,
 } from 'recharts'
+import ThemeToggle from '@/components/ThemeToggle'
 
 const DIFF_COLORS = { beginner: '#3fb950', intermediate: '#f6a623', advanced: '#f85149' }
 const DIFF_BADGE = { beginner: 'badge-green', intermediate: 'badge-orange', advanced: 'badge-red' }
@@ -164,7 +165,8 @@ export default function PathwayPage() {
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>est. days</div>
           </div>
-          <button className="btn btn-ghost" onClick={() => router.push('/onboard')}>↩ Start Over</button>
+            <ThemeToggle />
+            <button className="btn btn-ghost" onClick={() => router.push('/onboard')}>↩ Start Over</button>
         </div>
       </div>
 

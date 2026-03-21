@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { pathwayAPI } from '@/lib/api'
+import ThemeToggle from '@/components/ThemeToggle'
 
 const ROLES_PREVIEW = [
   'Backend Engineer', 'Penetration Tester', 'Data Scientist',
@@ -54,8 +55,9 @@ export default function Home() {
           }}>P</div>
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16 }}>PathPilot</span>
         </div>
-        <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <span className="badge badge-blue">AI Onboarding Engine</span>
+          <ThemeToggle />
           <button className="btn btn-ghost" onClick={() => router.push('/onboard')}>Get Started →</button>
         </div>
       </nav>
