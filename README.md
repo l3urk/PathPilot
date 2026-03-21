@@ -8,7 +8,6 @@ PathPilot is an AI-driven adaptive onboarding engine that analyzes a new hire's 
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop) (Windows/Mac) or Docker Engine + Docker Compose (Linux)
 - [Git](https://git-scm.com/)
-- A free [Groq API key](https://console.groq.com)
 
 ### Run with Docker (Recommended)
 
