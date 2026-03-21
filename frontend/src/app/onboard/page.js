@@ -68,69 +68,85 @@ export default function OnboardPage() {
 
   const visibleFields = ALL_PLATFORM_FIELDS.filter(f => f.roles === 'all' || f.roles.includes(selectedRole))
 
-  const handleFieldChange = async (key, value) => {
+  const handleFieldChange = (key, value) => {
     setProfileData(p => ({ ...p, [key]: value }))
-    if (!value.trim()) { setFieldErrors(e => ({ ...e, [key]: null })); setFieldStatus(s => ({ ...s, [key]: null })); return }
+    if (fieldErrors[key]) {
+      setFieldErrors(e => ({ ...e, [key]: null }))
+      setFieldStatus(s => ({ ...s, [key]: null }))
+    }
+  }
+
+  const handleFieldBlur = async (key, value) => {
+    if (!value.trim()) {
+      setFieldErrors(e => ({ ...e, [key]: null }))
+      setFieldStatus(s => ({ ...s, [key]: null }))
+      return
+    }
     const field = ALL_PLATFORM_FIELDS.find(f => f.key === key)
     if (!field) return
     const username = field.extract(value.trim())
-    if (!username) { setFieldErrors(e => ({ ...e, [key]: 'Invalid format — enter username or full profile URL' })); setFieldStatus(s => ({ ...s, [key]: 'error' })); return }
-    setFieldStatus(s => ({ ...s, [key]: 'verifying' })); setFieldErrors(e => ({ ...e, [key]: null }))
+    if (!username) {
+      setFieldErrors(e => ({ ...e, [key]: 'Invalid format — enter username or full profile URL' }))
+      setFieldStatus(s => ({ ...s, [key]: 'error' }))
+      return
+    }
+    setFieldStatus(s => ({ ...s, [key]: 'verifying' }))
+    setFieldErrors(e => ({ ...e, [key]: null }))
     const err = await field.verify(username)
-    if (err) { setFieldErrors(e => ({ ...e, [key]: err })); setFieldStatus(s => ({ ...s, [key]: 'error' })) }
-    else { setFieldStatus(s => ({ ...s, [key]: 'valid' })); setProfileData(p => ({ ...p, [key]: username })) }
+    if (err) {
+      setFieldErrors(e => ({ ...e, [key]: err }))
+      setFieldStatus(s => ({ ...s, [key]: 'error' }))
+    } else {
+      setFieldStatus(s => ({ ...s, [key]: 'valid' }))
+      setProfileData(p => ({ ...p, [key]: username }))
+    }
   }
 
-  const handleResumeFile = (file) => {
+  const handleResumeFile = async (file) => {
     if (!file) return
     const allowed = ['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','image/png','image/jpeg']
     if (!allowed.includes(file.type)) { setResumeError('Only PDF, Word, PNG, JPG accepted'); setResumeFile(null); return }
     if (file.size > 10 * 1024 * 1024) { setResumeError('File must be under 10MB'); setResumeFile(null); return }
-    setResumeError(''); setResumeFile(file)
-    const reader = new FileReader()
-    reader.onload = (e) => setProfileData(p => ({ ...p, resume_text: `[File: ${file.name}]\n${e.target.result.slice(0,3000)}` }))
-    reader.readAsText(file)
+    setResumeError('')
+    setResumeFile(file)
+    setResumeError('Extracting text from resume...')
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await axios.post('http://localhost:8000/api/resume/extract-text', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      setProfileData(p => ({ ...p, resume_text: res.data.text }))
+      setResumeError('')
+    } catch (e) {
+      setResumeError('Failed to extract text from resume. Please try a different file.')
+      setResumeFile(null)
+    }
   }
 
   // Path A: Scrape and check if enough data
- const handleScrape = async () => {
-  setScraping(true); setError('')
-  try {
-    setScrapeMsg('Extracting data from your profiles...')
-    const res = await profileAPI.extract({ ...profileData, target_role: selectedRole })
-    const profile = res.data
-    const skillCount = profile.skills?.length || 0
-    const avgScore = skillCount > 0
-      ? profile.skills.reduce((sum, s) => sum + s.score, 0) / skillCount
-      : 0
-
-    const notEnoughData = skillCount < 2 || (skillCount < 4 && avgScore < 0.15)
-
-    if (notEnoughData) {
-      setScrapeMsg('')
-      setScraping(false)
-      try {
-        const res2 = await api.get(`/diagnostic/stage1/${selectedRole}`)
-        setSkillCategories(res2.data.skill_categories || {})
-      } catch { setSkillCategories({}) }
-      setError(`Only ${skillCount} skill signal${skillCount === 1 ? '' : 's'} found — not enough for an accurate pathway. Please tell us what you know instead.`)
-      setTimeout(() => { setError(''); setPath('B'); setStep(2) }, 2000)
-      return
-    }
-
-    setExtractedProfile(profile)
-    setScraping(false)
-    setStep(3)
-  } catch (e) {
-    setScraping(false)
+const handleScrape = async () => {
+    setScraping(true); setError('')
     try {
-      const res2 = await api.get(`/diagnostic/stage1/${selectedRole}`)
-      setSkillCategories(res2.data.skill_categories || {})
-    } catch { setSkillCategories({}) }
-    setError('Failed to extract profile data. Taking you to the diagnostic instead.')
-    setTimeout(() => { setError(''); setPath('B'); setStep(2) }, 2500)
+      setScrapeMsg('Extracting data from your profiles...')
+      const res = await profileAPI.extract({ ...profileData, target_role: selectedRole })
+      const profile = res.data
+      setScrapeMsg('Generating your personalized pathway...')
+      const pathRes = await pathwayAPI.generate({
+        profile,
+        target_role: selectedRole,
+        diagnostic_skills: []
+      })
+      sessionStorage.setItem('pathway', JSON.stringify(pathRes.data))
+      sessionStorage.setItem('profile', JSON.stringify(profile))
+      setScraping(false)
+      router.push('/pathway')
+    } catch (e) {
+      setScraping(false)
+      setError('Failed to extract profile data. Please check your inputs and try again.')
+    }
   }
-}
 
   // Path A: Generate from extracted profile
   const handleGenerateFromProfile = async () => {
@@ -373,7 +389,8 @@ const handleStage2 = async () => {
                       <span style={{ padding: '10px 12px', background: 'var(--bg-0)', border: '1px solid var(--border)', borderRight: 'none', borderRadius: 'var(--radius-md) 0 0 var(--radius-md)', fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>{field.prefix}</span>
                       <input className="input" style={{ borderRadius: '0 var(--radius-md) var(--radius-md) 0', borderColor: fieldErrors[field.key] ? 'var(--accent-red)' : fieldStatus[field.key] === 'valid' ? 'var(--accent-green)' : undefined }}
                         placeholder={field.placeholder} value={profileData[field.key]}
-                        onChange={e => handleFieldChange(field.key, e.target.value)} />
+                       onChange={e => handleFieldChange(field.key, e.target.value)}
+                       onBlur={e => handleFieldBlur(field.key, e.target.value)} />
                       <div style={{ marginLeft: 8, width: 20, textAlign: 'center', fontSize: 14 }}>
                         {fieldStatus[field.key] === 'verifying' && <div style={{ width: 14, height: 14, border: '2px solid var(--bg-3)', borderTop: '2px solid var(--accent-blue)', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />}
                         {fieldStatus[field.key] === 'valid' && <span style={{ color: 'var(--accent-green)' }}>✓</span>}
@@ -384,18 +401,7 @@ const handleStage2 = async () => {
                   </div>
                 ))}
 
-                {/* LinkedIn */}
-                <div className="card" style={{ padding: '16px 20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#63b3ed' }} />
-                    <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14 }}>LinkedIn</span>
-                    <span className="badge badge-blue" style={{ fontSize: 10 }}>optional</span>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto' }}>export PDF → paste text</span>
-                  </div>
-                  <textarea className="input" placeholder="Paste your LinkedIn profile text here..." rows={3}
-                    value={profileData.linkedin_text}
-                    onChange={e => setProfileData(p => ({ ...p, linkedin_text: e.target.value }))} />
-                </div>
+                
               </div>
 
               {error && <div style={{ marginTop: 16, padding: '12px 16px', background: 'rgba(248,81,73,0.1)', border: '1px solid rgba(248,81,73,0.3)', borderRadius: 'var(--radius-md)', color: 'var(--accent-red)', fontSize: 13 }}>{error}</div>}
@@ -410,7 +416,7 @@ const handleStage2 = async () => {
               <div style={{ marginTop: 24, display: 'flex', gap: 12, justifyContent: 'space-between' }}>
                 <button className="btn btn-ghost" onClick={() => setStep(1)}>← Back</button>
                 <button className="btn btn-primary" disabled={!canScrape || scraping} onClick={handleScrape}>
-                  {scraping ? 'Extracting...' : 'Extract My Skills →'}
+                 {scraping ? scrapeMsg || 'Processing...' : 'Build My Pathway →'}
                 </button>
               </div>
             </div>
